@@ -1,7 +1,7 @@
 // src/components/AdminPanel.jsx
 import { useState, useEffect } from "react";
 import TMDBSearch from "./TMDBSearch";
-import { supabase } from "../supabaseClient";
+import  supabase  from "../supabaseClient";
 import UserManager from "./UserManager"; // Importa el componente UserManager
 
 export default function AdminPanel() {
