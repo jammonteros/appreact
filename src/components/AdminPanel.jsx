@@ -1,133 +1,92 @@
-// src/components/AdminPanel.jsx
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import supabase from "../supabaseClient";
 import TMDBSearch from "./TMDBSearch";
-import  supabase  from "../supabaseClient";
-import UserManager from "./UserManager"; // Importa el componente UserManager
+import UserManager from "./UserManager";
 
 export default function AdminPanel() {
+  const navigate = useNavigate();
   const [videos, setVideos] = useState([]);
-  const [form, setForm] = useState({
-    title: "",
-    category: "",
-    video_url: "",
-    image_url: "",
-    description: "",
-  });
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Función para cargar los videos desde Supabase
-  const fetchVideos = async () => {
-    const { data, error } = await supabase.from("videos").select("*");
-    if (error) {
-      console.error("Error al cargar los videos:", error);
-    } else {
-      setVideos(data);
-    }
-  };
+  // Redirige si no es admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      if (!userId) return navigate("/login");
 
-  // Función para agregar un nuevo video
-  const addVideo = async () => {
-    const { error } = await supabase.from("videos").insert([form]);
-    if (error) {
-      console.error("Error al agregar el video:", error);
-    } else {
-      setForm({
-        title: "",
-        category: "",
-        video_url: "",
-        image_url: "",
-        description: "",
-      });
-      fetchVideos();
-    }
-  };
+      const { data: profile } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", userId)
+        .single();
 
-  // Función para eliminar un video
-  const deleteVideo = async (id) => {
-    const { error } = await supabase.from("videos").delete().eq("id", id);
-    if (error) {
-      console.error("Error al eliminar el video:", error);
-    } else {
-      fetchVideos();
-    }
-  };
+      if (!profile || profile.role !== "admin") navigate("/");
+    };
+    checkAdmin();
+  }, []);
 
   useEffect(() => {
     fetchVideos();
   }, []);
 
+  const fetchVideos = async () => {
+    const { data, error } = await supabase.from("videos").select("*").order("created_at", { ascending: false });
+    if (error) console.error("Error fetching videos:", error);
+    else setVideos(data || []);
+  };
+
+  const deleteVideo = async (id) => {
+    const { error } = await supabase.from("videos").delete().eq("id", id);
+    if (!error) fetchVideos();
+  };
+
+  const filteredVideos = videos.filter((v) =>
+    v.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="bg-gray-900 text-white p-6 rounded-md shadow-lg">
-      <h2 className="text-2xl font-semibold mb-4">🛠️ Panel de Administración</h2>
+    <div className="min-h-screen bg-gray-900 text-white p-4 space-y-8">
+      <h1 className="text-3xl font-bold text-center">Panel de Administración</h1>
 
-      {/* Formulario para agregar un video */}
-      <div className="mb-6">
-        <h3 className="text-xl font-medium mb-4">➕ Agregar Video</h3>
-        <input
-          placeholder="Título"
-          className="p-2 bg-gray-700 rounded w-full mb-2"
-          value={form.title}
-          onChange={(e) => setForm({ ...form, title: e.target.value })}
-        />
-        <input
-          placeholder="Categoría"
-          className="p-2 bg-gray-700 rounded w-full mb-2"
-          value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value })}
-        />
-        <input
-          placeholder="URL del Video"
-          className="p-2 bg-gray-700 rounded w-full mb-2"
-          value={form.video_url}
-          onChange={(e) => setForm({ ...form, video_url: e.target.value })}
-        />
-        <input
-          placeholder="URL de la imagen"
-          className="p-2 bg-gray-700 rounded w-full mb-2"
-          value={form.image_url}
-          onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-        />
-        <textarea
-          placeholder="Descripción"
-          className="p-2 bg-gray-700 rounded w-full mb-2"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-        />
-        <button
-          onClick={addVideo}
-          className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded mt-2"
-        >
-          Agregar Video
-        </button>
-      </div>
+      {/* Buscar video */}
+      <input
+        type="text"
+        placeholder="Buscar videos..."
+        className="w-full p-2 rounded bg-gray-800 text-white"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
 
-      {/* Mostrar los videos */}
-      <div className="mb-6">
-        <h3 className="text-xl font-medium mb-4">📦 Videos Cargados</h3>
-        <ul className="space-y-2">
-          {videos.map((video) => (
-            <li
-              key={video.id}
-              className="flex justify-between items-center bg-gray-700 p-2 rounded-md"
+      {/* Lista de videos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredVideos.map((video) => (
+          <div key={video.id} className="bg-gray-800 p-4 rounded shadow">
+            <h2 className="text-xl font-semibold mb-2">{video.title}</h2>
+            <p className="text-sm text-gray-400 mb-1">{video.category}</p>
+            <p className="text-sm mb-2">{video.description?.slice(0, 80)}...</p>
+            <button
+              onClick={() => deleteVideo(video.id)}
+              className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm"
             >
-              <div className="text-white flex-1">
-                <h4>{video.title}</h4>
-                <p className="text-sm">{video.category}</p>
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => deleteVideo(video.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  Eliminar
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+              Eliminar
+            </button>
+          </div>
+        ))}
       </div>
 
-      {/* Panel de gestión de usuarios */}
-      <UserManager />
+      {/* Buscador TMDB */}
+      <div className="mt-10">
+        <h2 className="text-2xl mb-2">Buscar y cargar contenido desde TMDB</h2>
+        <TMDBSearch onContentUploaded={fetchVideos} />
+      </div>
+
+      {/* Gestión de usuarios */}
+      <div className="mt-10">
+        <h2 className="text-2xl mb-2">Gestión de Usuarios</h2>
+        <UserManager />
+      </div>
     </div>
   );
 }
