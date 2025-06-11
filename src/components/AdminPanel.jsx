@@ -1,42 +1,53 @@
 // src/components/AdminPanel.jsx
-import { useEffect, useState } from "react";
-import supabase from "../supabaseClient";
+import { useState, useEffect } from "react";
 import TMDBSearch from "./TMDBSearch";
+import { supabase } from "../supabaseClient";
+import UserManager from "./UserManager"; // Importa el componente UserManager
 
 export default function AdminPanel() {
   const [videos, setVideos] = useState([]);
   const [form, setForm] = useState({
     title: "",
-    image_url: "",
-    video_url: "",
     category: "",
+    video_url: "",
+    image_url: "",
+    description: "",
   });
 
+  // Función para cargar los videos desde Supabase
   const fetchVideos = async () => {
-    const { data, error } = await supabase.from("videos").select("*").order("created_at", { ascending: false });
-    if (error) console.error("Error al cargar videos:", error);
-    else setVideos(data);
+    const { data, error } = await supabase.from("videos").select("*");
+    if (error) {
+      console.error("Error al cargar los videos:", error);
+    } else {
+      setVideos(data);
+    }
   };
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Función para agregar un nuevo video
+  const addVideo = async () => {
     const { error } = await supabase.from("videos").insert([form]);
-    if (error) alert("Error al guardar");
-    else {
-      setForm({ title: "", image_url: "", video_url: "", category: "" });
+    if (error) {
+      console.error("Error al agregar el video:", error);
+    } else {
+      setForm({
+        title: "",
+        category: "",
+        video_url: "",
+        image_url: "",
+        description: "",
+      });
       fetchVideos();
     }
   };
 
-  const handleDelete = async (id) => {
-    if (confirm("¿Eliminar este contenido?")) {
-      const { error } = await supabase.from("videos").delete().eq("id", id);
-      if (error) alert("Error al eliminar");
-      else fetchVideos();
+  // Función para eliminar un video
+  const deleteVideo = async (id) => {
+    const { error } = await supabase.from("videos").delete().eq("id", id);
+    if (error) {
+      console.error("Error al eliminar el video:", error);
+    } else {
+      fetchVideos();
     }
   };
 
@@ -45,91 +56,78 @@ export default function AdminPanel() {
   }, []);
 
   return (
-    <div className="bg-black min-h-screen text-white p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Panel de Administración</h1>
+    <div className="bg-gray-900 text-white p-6 rounded-md shadow-lg">
+      <h2 className="text-2xl font-semibold mb-4">🛠️ Panel de Administración</h2>
 
-      {/* Formulario manual */}
-      <form onSubmit={handleSubmit} className="bg-gray-900 p-4 rounded space-y-3 max-w-md">
-        <h2 className="text-xl font-semibold">Agregar manualmente</h2>
+      {/* Formulario para agregar un video */}
+      <div className="mb-6">
+        <h3 className="text-xl font-medium mb-4">➕ Agregar Video</h3>
         <input
-          className="w-full p-2 bg-gray-800 rounded"
-          type="text"
-          name="title"
           placeholder="Título"
+          className="p-2 bg-gray-700 rounded w-full mb-2"
           value={form.title}
-          onChange={handleChange}
-          required
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
         />
         <input
-          className="w-full p-2 bg-gray-800 rounded"
-          type="text"
-          name="image_url"
-          placeholder="URL de imagen"
-          value={form.image_url}
-          onChange={handleChange}
-        />
-        <input
-          className="w-full p-2 bg-gray-800 rounded"
-          type="text"
-          name="video_url"
-          placeholder="URL de video"
-          value={form.video_url}
-          onChange={handleChange}
-        />
-        <input
-          className="w-full p-2 bg-gray-800 rounded"
-          type="text"
-          name="category"
-          placeholder="Categoría (Ej: Series, Cine)"
+          placeholder="Categoría"
+          className="p-2 bg-gray-700 rounded w-full mb-2"
           value={form.category}
-          onChange={handleChange}
-          required
+          onChange={(e) => setForm({ ...form, category: e.target.value })}
         />
-        <button type="submit" className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded w-full">
-          Guardar contenido
+        <input
+          placeholder="URL del Video"
+          className="p-2 bg-gray-700 rounded w-full mb-2"
+          value={form.video_url}
+          onChange={(e) => setForm({ ...form, video_url: e.target.value })}
+        />
+        <input
+          placeholder="URL de la imagen"
+          className="p-2 bg-gray-700 rounded w-full mb-2"
+          value={form.image_url}
+          onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+        />
+        <textarea
+          placeholder="Descripción"
+          className="p-2 bg-gray-700 rounded w-full mb-2"
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+        />
+        <button
+          onClick={addVideo}
+          className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded mt-2"
+        >
+          Agregar Video
         </button>
-      </form>
-
-      {/* Buscador TMDB */}
-      <div className="max-w-2xl">
-        <h2 className="text-xl font-semibold mb-2">Buscar en TMDB</h2>
-        <TMDBSearch
-          onVideoAdded={fetchVideos}
-          onSelectResult={(video) => setForm(video)}
-        />
       </div>
 
-      {/* Lista de contenido */}
-      <div>
-        <h2 className="text-xl font-semibold mb-2 mt-6">Contenido cargado</h2>
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+      {/* Mostrar los videos */}
+      <div className="mb-6">
+        <h3 className="text-xl font-medium mb-4">📦 Videos Cargados</h3>
+        <ul className="space-y-2">
           {videos.map((video) => (
-            <div key={video.id} className="bg-gray-800 rounded p-2 shadow">
-              <img
-                src={video.image_url}
-                alt={video.title}
-                className="w-full h-32 object-cover rounded"
-              />
-              <h3 className="text-sm font-semibold mt-2 truncate">{video.title}</h3>
-              <p className="text-xs text-gray-400 truncate">{video.category}</p>
-              <div className="flex gap-1 mt-2">
+            <li
+              key={video.id}
+              className="flex justify-between items-center bg-gray-700 p-2 rounded-md"
+            >
+              <div className="text-white flex-1">
+                <h4>{video.title}</h4>
+                <p className="text-sm">{video.category}</p>
+              </div>
+              <div className="flex space-x-2">
                 <button
-                  className="bg-yellow-500 hover:bg-yellow-600 text-xs px-2 py-1 rounded w-full"
-                  onClick={() => alert("Editar próximamente")}
+                  onClick={() => deleteVideo(video.id)}
+                  className="text-red-500 hover:text-red-700"
                 >
-                  📝
-                </button>
-                <button
-                  className="bg-red-600 hover:bg-red-700 text-xs px-2 py-1 rounded w-full"
-                  onClick={() => handleDelete(video.id)}
-                >
-                  🗑
+                  Eliminar
                 </button>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
+
+      {/* Panel de gestión de usuarios */}
+      <UserManager />
     </div>
   );
 }
